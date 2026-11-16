@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Presensi Duta - UPZ Attendance</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f5f5f1;font-family:Arial;color:#263247}
+header{background:#102d50;color:white;padding:22px;display:flex;justify-content:space-between;align-items:center}
+main{max-width:850px;margin:auto;padding:20px}
+.panel{background:white;padding:22px;border-radius:14px;margin-bottom:16px;border:1px solid #eee}
+h2,h3{margin-top:0}
+small,.muted{color:#888;font-size:12px}
+button,.btn-label{display:inline-block;text-align:center;padding:12px 16px;border:0;border-radius:8px;background:#102d50;color:white;font-weight:bold;cursor:pointer;font-size:13px}
+button:disabled{opacity:.5}
+.activity{padding:15px;border:1px solid #eee;border-radius:10px;margin:12px 0}
+.gold{background:#b99a57}
+.blue{background:#2563eb}
+#message{font-size:13px;color:#a58343;margin:12px 0;line-height:1.5}
+video,img{width:100%;max-height:300px;object-fit:cover;border-radius:10px}
+.history{padding:12px 0;border-bottom:1px solid #eee;font-size:13px}
+#modal{display:none;position:fixed;inset:0;background:#0009;overflow:auto;padding:12px}
+.modalbox{max-width:480px;margin:20px auto;background:white;padding:20px;border-radius:14px}
+</style>
+</head>
+<body>
+<header>
+ <div><b>UPZ ATTENDANCE</b><br><small style="color:#e8d5a7">DUTA UNPAM</small></div>
+ <button onclick="logout()" style="background:white;color:#102d50">Keluar</button>
+</header>
+<main>
+ <section class="panel">
+  <small>DUTA UPZ ATTENDANCE SYSTEM</small>
+  <h2>Assalamu'alaikum, <span id="name">Duta</span></h2>
+  <p class="muted">Selamat datang di sistem presensi digital.</p>
+ </section>
+ <section class="panel">
+  <h3>Daftar Kegiatan</h3>
+  <div id="activities">Memuat...</div>
+ </section>
+ <section class="panel">
+  <h3>Riwayat Presensi</h3>
+  <div id="history">Memuat...</div>
+ </section>
+</main>
+
+<div id="modal">
+ <div class="modalbox">
+  <h3 id="activityTitle">Presensi</h3>
+  <div id="message">Ambil lokasi GPS terlebih dahulu.</div>
+  <button id="gpsButton" onclick="getLocation()" style="width:100%">AMBIL LOKASI GPS</button>
+  <p id="gpsInfo" class="muted"></p>
+
+  <h3>Foto Bukti Kehadiran</h3>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" hidden></canvas>
+  
+  <button class="gold" id="btnTake" onclick="takePhoto()" style="width:100%;margin-top:10px">AMBIL FOTO (WEBCAM)</button>
+  
+  <div style="margin-top:10px;">
+    <label for="fileInput" class="btn-label blue" style="width:100%;">AMBIL FOTO DENGAN KAMERA HP</label>
+    <input type="file" id="fileInput" accept="image/*" capture="user" onchange="handleFileUpload(event)" style="display:none;">
+  </div>
+
+  <img id="preview" hidden style="margin-top:10px;">
+  <button id="send" onclick="submitAttendance()" disabled style="width:100%;margin-top:15px">KIRIM PRESENSI</button>
+  <button onclick="closeModal()" style="width:100%;margin-top:8px;background:#ddd;color:#333">BATAL</button>
+ </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const token=sessionStorage.getItem("upz_token");
+let activities=[],selected=null,gps=null,photo="",stream=null;
+
+function esc(v){
+ return String(v??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+ })[c]);
+}
+
+async function logout(){
+ await apiCall("logout", { token: token });
+ sessionStorage.clear();
+ window.location.href="index.html";
+}
+
+async function loadData(){
+ if(!token){logout();return;}
+ const r = await apiCall("getDutaDashboard", { token: token });
+ if(!r || !r.success){logout();return;}
+ document.getElementById("name").textContent=r.user.name;
+ activities=r.activities||[];
+ document.getElementById("activities").innerHTML=activities.length?
+  activities.map(a=>`
+   <div class="activity">
+    <b>${esc(a.name)}</b>
+    <p class="muted">Radius Presensi: ${esc(a.radius)} meter</p>
+    ${a.attended?
+     '<b style="color:green">SUDAH PRESENSI</b>':
+     `<button class="gold" onclick="openModal('${esc(a.id)}')">PRESENSI SEKARANG</button>`}
+   </div>`).join(""):"Belum ada kegiatan aktif.";
+
+ document.getElementById("history").innerHTML=r.history.length?
+  r.history.map(h=>`
+   <div class="history">
+    <b>${esc(h.activity)}</b><br>
+    ${esc(h.time)} · ${esc(h.status)}
+    ${h.photo?`<br><a href="${esc(h.photo)}" target="_blank">Lihat foto bukti</a>`:""}
+   </div>`).join(""):"Belum ada riwayat.";
+}
+
+async function openModal(id){
+ selected=activities.find(a=>a.id===id);
+ if(!selected)return;
+ gps=null;photo="";
+ document.getElementById("activityTitle").textContent=selected.name;
+ document.getElementById("gpsInfo").textContent="";
+ document.getElementById("message").textContent="Ambil lokasi GPS terlebih dahulu.";
+ document.getElementById("preview").hidden=true;
+ document.getElementById("video").hidden=false;
+ document.getElementById("send").disabled=true;
+ document.getElementById("fileInput").value="";
+ document.getElementById("modal").style.display="block";
+
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({ video:{facingMode:{ideal:"user"}},audio:false });
+  document.getElementById("video").srcObject=stream;
+ }catch(e1){
+  try{
+   stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+   document.getElementById("video").srcObject=stream;
+  }catch(e2){
+   document.getElementById("video").hidden=true;
+   document.getElementById("btnTake").style.display="none";
+   document.getElementById("message").textContent="Gunakan tombol biru 'AMBIL FOTO DENGAN KAMERA HP'.";
+  }
+ }
+}
+
+function getLocation(){
+ const b=document.getElementById("gpsButton");
+ b.disabled=true;b.textContent="MENCARI GPS...";
+ navigator.geolocation.getCurrentPosition(p=>{
+  gps={latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy};
+  document.getElementById("gpsInfo").textContent=
+   "Lat: "+gps.latitude.toFixed(6)+" | Long: "+gps.longitude.toFixed(6)+
+   " | Akurasi: "+Math.round(gps.accuracy)+" meter";
+  document.getElementById("message").textContent=
+   gps.accuracy<=50?"GPS berhasil. Silakan ambil foto.":
+   "Akurasi GPS kurang ("+Math.round(gps.accuracy)+"m). Coba di area terbuka.";
+  b.disabled=false;b.textContent="AMBIL ULANG GPS";
+  checkReady();
+ },e=>{
+  document.getElementById("message").textContent="GPS gagal: "+e.message;
+  b.disabled=false;b.textContent="COBA GPS LAGI";
+ },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+
+function takePhoto(){
+ const v=document.getElementById("video");
+ if(!v.videoWidth){alert("Kamera belum siap.");return;}
+ const c=document.getElementById("canvas");
+ const scale=Math.min(1,1000/v.videoWidth);
+ c.width=Math.round(v.videoWidth*scale);
+ c.height=Math.round(v.videoHeight*scale);
+ c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+ photo=c.toDataURL("image/jpeg",.65);
+ const img=document.getElementById("preview");
+ img.src=photo;img.hidden=false;
+ document.getElementById("message").textContent="Foto berhasil diambil.";
+ checkReady();
+}
+
+function handleFileUpload(e){
+ const file=e.target.files[0];
+ if(!file)return;
+ const reader=new FileReader();
+ reader.onload=function(evt){
+  const imgObj=new Image();
+  imgObj.onload=function(){
+   const c=document.getElementById("canvas");
+   const scale=Math.min(1,1000/imgObj.width);
+   c.width=Math.round(imgObj.width*scale);
+   c.height=Math.round(imgObj.height*scale);
+   const ctx=c.getContext("2d");
+   ctx.drawImage(imgObj,0,0,c.width,c.height);
+   photo=c.toDataURL("image/jpeg",.65);
+   const img=document.getElementById("preview");
+   img.src=photo;img.hidden=false;
+   document.getElementById("video").hidden=true;
+   document.getElementById("message").textContent="Foto dari HP berhasil dimuat.";
+   checkReady();
+  };
+  imgObj.src=evt.target.result;
+ };
+ reader.readAsDataURL(file);
+}
+
+function checkReady(){
+ document.getElementById("send").disabled= !(gps&&gps.accuracy<=50&&photo);
+}
+
+async function submitAttendance(){
+ if(!gps||!photo||!selected)return;
+ const b=document.getElementById("send");
+ b.disabled=true;b.textContent="MENGIRIM...";
+ document.getElementById("message").textContent="Memvalidasi dan menyimpan presensi...";
+
+ const r = await apiCall("submitAttendance", {
+  token: token,
+  payload: {
+   activityId:selected.id,
+   latitude:gps.latitude,
+   longitude:gps.longitude,
+   accuracy:gps.accuracy,
+   photo:photo
+  }
+ });
+
+ if(r.success){
+  document.getElementById("message").textContent=r.message+" Jarak: "+r.distance+" meter.";
+  b.textContent="BERHASIL";
+  setTimeout(()=>{closeModal();loadData();},1500);
+ } else {
+  b.disabled=false;b.textContent="KIRIM PRESENSI";
+  document.getElementById("message").textContent=r.message||"Presensi gagal.";
+ }
+}
+
+function closeModal(){
+ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+ document.getElementById("modal").style.display="none";
+}
+loadData();
+</script>
+</body>
+</html>

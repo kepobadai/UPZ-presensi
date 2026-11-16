@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard - UPZ Attendance</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f7f6f2;font-family:Arial;color:#263247}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:235px;background:white;border-right:1px solid #eee;padding:22px 14px;display:flex;flex-direction:column;flex-shrink:0}
+.brand{padding:12px;font-weight:bold;color:#102d50;font-size:17px}
+.brand small{display:block;font-size:10px;color:#b99a57;margin-top:5px}
+.menu-title{font-size:10px;color:#aaa;margin:25px 10px 10px}
+.menu{width:100%;border:0;background:white;text-align:left;padding:14px;border-radius:8px;color:#777;cursor:pointer;margin-bottom:4px;font-size:13px}
+.menu:hover,.menu.active{background:#f7f1e5;color:#9d7b38;font-weight:bold}
+.logout{margin-top:auto;padding:13px;background:white;border:1px solid #ddd;border-radius:8px;color:#a55;cursor:pointer}
+.main{flex:1;min-width:0;padding:28px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
+.top h1{font-size:24px;margin:0}
+.muted{font-size:12px;color:#999;margin-top:7px}
+.profile{background:white;padding:12px 16px;border-radius:10px;font-size:12px}
+.welcome{padding:26px;background:linear-gradient(110deg,#fff,#f3ead8);border:1px solid #eadfc9;border-radius:14px;margin-bottom:23px}
+.welcome small{color:#a58343}
+.welcome h2{margin:12px 0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin:20px 0}
+.stat,.panel{background:white;border:1px solid #eee;border-radius:12px;padding:19px}
+.stat small{color:#888}
+.number{font-size:28px;font-weight:bold;color:#b18d4a;margin-top:15px}
+.panel{margin-bottom:18px}
+.panelhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:17px}
+h3{font-size:15px;margin:0}
+button{font-family:inherit}
+.primary{background:#102d50;color:white;border:0;padding:11px 15px;border-radius:7px;cursor:pointer}
+.gold{background:#b99a57;color:white;border:0;padding:11px 15px;border-radius:7px;cursor:pointer}
+.gray{background:#eee;color:#444;border:0;padding:10px 13px;border-radius:7px;cursor:pointer}
+.danger{background:#fceaea;color:#b44;border:0;padding:8px 10px;border-radius:6px;cursor:pointer}
+.success{background:#eaf5eb;color:#397b46;border:0;padding:8px 10px;border-radius:6px;cursor:pointer}
+table{width:100%;border-collapse:collapse;min-width:600px}
+th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #eee;font-size:12px}
+th{color:#999;font-size:10px}
+.tablewrap{overflow-x:auto}
+input,select{padding:11px;border:1px solid #ddd;border-radius:7px;width:100%;font-size:13px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.formgrid label{font-size:11px;display:block;margin-bottom:6px}
+.formgrid>div{margin-bottom:8px}
+.message{font-size:12px;color:#a58343;margin:12px 0}
+.hidden{display:none!important}
+.badge{padding:5px 8px;border-radius:20px;background:#eaf5eb;color:#397b46;font-size:10px}
+.modal{position:fixed;inset:0;background:#0008;display:grid;place-items:center;padding:15px;z-index:5}
+.modalbox{width:100%;max-width:500px;background:white;border-radius:13px;padding:23px;max-height:90vh;overflow:auto}
+.modalbox h3{margin-bottom:20px}
+.actions{display:flex;gap:9px;margin-top:15px}
+.actions button{flex:1}
+@media(max-width:850px){.sidebar{width:180px}.stats{grid-template-columns:repeat(2,1fr)}.main{padding:18px}}
+@media(max-width:580px){.sidebar{width:65px;padding:10px 5px}.brand{font-size:11px;padding:8px 3px}.brand small,.menu-title,.menutext{display:none}.menu{text-align:center;padding:13px 4px}.main{padding:13px 9px}.profile{display:none}.formgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+ <div class="brand">UPZ <small>ATTENDANCE SYSTEM</small></div>
+ <div class="menu-title">MAIN MENU</div>
+ <button class="menu active" onclick="page('dashboard',this)">⌂ <span class="menutext">Dashboard</span></button>
+ <button class="menu" onclick="page('members',this)">♙ <span class="menutext">Anggota</span></button>
+ <button class="menu" onclick="page('admins',this)">♧ <span class="menutext">Admin</span></button>
+ <button class="menu" onclick="page('activities',this)">▣ <span class="menutext">Kegiatan</span></button>
+ <button class="menu" onclick="page('attendance',this)">◷ <span class="menutext">Presensi</span></button>
+ <button class="menu" onclick="page('reports',this)">▤ <span class="menutext">Laporan</span></button>
+ <button class="logout" onclick="logout()">↪ <span class="menutext">Keluar</span></button>
+</aside>
+
+<main class="main">
+<header class="top">
+ <div><h1 id="title">Dashboard</h1><div class="muted">Sistem Presensi Digital Duta UPZ UNPAM</div></div>
+ <div class="profile"><b id="adminName">Admin</b><br><span class="muted">SUPER ADMIN</span></div>
+</header>
+
+<section id="dashboard" class="view">
+ <div class="welcome"><small>UPZ ATTENDANCE SYSTEM</small><h2>Selamat Datang, <span id="welcomeName">Admin</span></h2><div class="muted">Kelola seluruh aktivitas Duta UPZ dalam satu sistem.</div></div>
+ <div class="stats">
+  <div class="stat"><small>Total Anggota</small><div class="number" id="totalUsers">0</div></div>
+  <div class="stat"><small>Anggota Aktif</small><div class="number" id="activeUsers">0</div></div>
+  <div class="stat"><small>Kegiatan Aktif</small><div class="number" id="totalActivities">0</div></div>
+  <div class="stat"><small>Total Presensi</small><div class="number" id="totalAttendance">0</div></div>
+ </div>
+ <div class="panel">
+  <div class="panelhead"><h3>Presensi Terbaru</h3><button class="gray" onclick="loadDashboard()">Refresh</button></div>
+  <div class="tablewrap"><table><thead><tr><th>ANGGOTA</th><th>KEGIATAN</th><th>WAKTU</th><th>STATUS</th></tr></thead><tbody id="recentRows"></tbody></table></div>
+ </div>
+</section>
+
+<section id="members" class="view hidden">
+ <div class="panel">
+  <div class="panelhead"><h3>Manajemen Anggota</h3><button class="gold" onclick="openMember()">+ Tambah</button></div>
+  <input id="memberSearch" placeholder="Cari nama, NIM, email..." oninput="renderMembers()">
+  <div id="memberMsg" class="message"></div>
+  <div class="tablewrap"><table><thead><tr><th>NAMA</th><th>NIM</th><th>EMAIL</th><th>STATUS</th><th>AKSI</th></tr></thead><tbody id="memberRows"></tbody></table></div>
+ </div>
+</section>
+
+<section id="admins" class="view hidden">
+ <div class="panel">
+  <h3>Informasi Admin</h3>
+  <p class="muted">Akun dengan role SUPER_ADMIN memiliki akses penuh ke sistem.</p>
+  <div id="adminInfo" class="message">Memuat informasi...</div>
+ </div>
+</section>
+
+<section id="activities" class="view hidden">
+ <div class="panel">
+  <div class="panelhead"><h3>Manajemen Kegiatan</h3><button class="gold" onclick="openActivity()">+ Kegiatan</button></div>
+  <div id="activityMsg" class="message"></div>
+  <div class="tablewrap"><table><thead><tr><th>KEGIATAN</th><th>LINK MAPS</th><th>RADIUS</th><th>STATUS</th><th>AKSI</th></tr></thead><tbody id="activityRows"></tbody></table></div>
+ </div>
+</section>
+
+<section id="attendance" class="view hidden">
+ <div class="panel">
+  <div class="panelhead"><h3>Data Presensi</h3><button class="gray" onclick="loadAttendance()">Refresh</button></div>
+  <input id="attendanceSearch" placeholder="Cari nama atau kegiatan..." oninput="renderAttendance()">
+  <div id="attendanceMsg" class="message"></div>
+  <div class="tablewrap"><table><thead><tr><th>ANGGOTA</th><th>KEGIATAN</th><th>WAKTU</th><th>GPS</th><th>JARAK</th><th>FOTO</th></tr></thead><tbody id="attendanceRows"></tbody></table></div>
+ </div>
+</section>
+
+<section id="reports" class="view hidden">
+ <div class="panel">
+  <div class="panelhead"><h3>Laporan Presensi</h3><button class="gold" onclick="exportReport()">Unduh CSV</button></div>
+  <p class="muted">Rekap seluruh presensi yang tersimpan dalam database.</p>
+  <div id="reportSummary" class="message"></div>
+  <div class="tablewrap"><table><thead><tr><th>ANGGOTA</th><th>KEGIATAN</th><th>WAKTU</th><th>STATUS</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+ </div>
+</section>
+</main>
+</div>
+
+<div class="modal hidden" id="memberModal">
+ <div class="modalbox">
+  <h3 id="memberModalTitle">Tambah Anggota</h3>
+  <form id="memberForm">
+   <input type="hidden" id="mid">
+   <div class="formgrid">
+    <div><label>Nama</label><input id="mname" required></div>
+    <div><label>NIM</label><input id="mnim" required></div>
+    <div><label>Email</label><input id="memail" type="email" required></div>
+    <div id="passwordField"><label>Password awal</label><input id="mpassword" type="password" minlength="8"></div>
+   </div>
+   <div id="memberFormMsg" class="message"></div>
+   <div class="actions"><button type="button" class="gray" onclick="closeModal('memberModal')">Batal</button><button class="primary" id="memberSave">Simpan</button></div>
+  </form>
+ </div>
+</div>
+
+<div class="modal hidden" id="activityModal">
+ <div class="modalbox">
+  <h3>Tambah Kegiatan</h3>
+  <form id="activityForm">
+   <div><label>Nama Kegiatan</label><input id="aname" required placeholder="Contoh: Rapat Rutin UPZ"></div>
+   <div style="margin-top:10px;"><label>Link Google Maps</label><input id="amaps" type="url" required placeholder="Paste link Google Maps di sini"></div>
+   <div style="margin-top:10px;"><label>Radius Lokasi (Meter)</label><input id="aradius" type="number" min="1" value="100" required></div>
+   <div class="message" id="activityFormMsg">Sistem akan membaca koordinat lokasi secara otomatis dari link Google Maps.</div>
+   <div class="actions"><button type="button" class="gray" onclick="closeModal('activityModal')">Batal</button><button class="primary" id="actSave">Simpan</button></div>
+  </form>
+ </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const token=sessionStorage.getItem("upz_token");
+let members=[],activities=[],attendance=[],mode="add";
+
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function msg(id,t){document.getElementById(id).textContent=t;}
+function closeModal(id){document.getElementById(id).classList.add("hidden");}
+
+async function logout(){
+ await apiCall("logout", { token: token });
+ sessionStorage.clear();
+ window.location.href="index.html";
+}
+
+function page(name,btn){
+ document.querySelectorAll(".view").forEach(x=>x.classList.add("hidden"));
+ document.getElementById(name).classList.remove("hidden");
+ document.querySelectorAll(".menu").forEach(x=>x.classList.remove("active"));
+ if(btn)btn.classList.add("active");
+ const titles={dashboard:"Dashboard",members:"Manajemen Anggota",admins:"Manajemen Admin",activities:"Manajemen Kegiatan",attendance:"Data Presensi",reports:"Laporan"};
+ document.getElementById("title").textContent=titles[name];
+ if(name==="dashboard")loadDashboard();
+ if(name==="members")loadMembers();
+ if(name==="activities")loadActivities();
+ if(name==="attendance"||name==="reports")loadAttendance();
+ if(name==="admins")loadAdmins();
+}
+
+async function loadDashboard(){
+ const r = await apiCall("getDashboard", { token: token });
+ if(!r || !r.success){logout();return;}
+ document.getElementById("adminName").textContent=r.user.name;
+ document.getElementById("welcomeName").textContent=r.user.name;
+ ["totalUsers","activeUsers","totalActivities","totalAttendance"].forEach(k=>document.getElementById(k).textContent=r.stats[k]);
+ document.getElementById("recentRows").innerHTML=r.recent.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.activity)}</td><td>${esc(x.time)}</td><td>${esc(x.status)}</td></tr>`).join("")||'<tr><td colspan="4">Belum ada presensi.</td></tr>';
+}
+
+async function loadMembers(){
+ const r = await apiCall("getMembers", { token: token });
+ members=r.members||[];
+ renderMembers();
+ msg("memberMsg","Total anggota: "+members.length);
+}
+function renderMembers(){
+ const q=document.getElementById("memberSearch").value.toLowerCase();
+ const rows=members.filter(x=>(x.name+" "+x.nim+" "+x.email).toLowerCase().includes(q));
+ document.getElementById("memberRows").innerHTML=rows.map(x=>`<tr>
+ <td>${esc(x.name)}</td><td>${esc(x.nim)}</td><td>${esc(x.email)}</td>
+ <td><span class="badge">${esc(x.status)}</span></td>
+ <td><button class="gray" onclick="editMember('${esc(x.id)}')">Edit</button>
+ <button class="${x.status==="ACTIVE"?"danger":"success"}" onclick="statusMember('${esc(x.id)}','${x.status==="ACTIVE"?"INACTIVE":"ACTIVE"}')">${x.status==="ACTIVE"?"Nonaktifkan":"Aktifkan"}</button></td></tr>`).join("")||'<tr><td colspan="5">Tidak ada anggota.</td></tr>';
+}
+function openMember(){
+ mode="add";
+ document.getElementById("memberForm").reset();
+ document.getElementById("mid").value="";
+ document.getElementById("memberModalTitle").textContent="Tambah Anggota";
+ document.getElementById("passwordField").classList.remove("hidden");
+ document.getElementById("mpassword").required=true;
+ document.getElementById("memberModal").classList.remove("hidden");
+}
+function editMember(id){
+ const x=members.find(m=>m.id===id);if(!x)return;
+ mode="edit";
+ document.getElementById("mid").value=x.id;
+ document.getElementById("mname").value=x.name;
+ document.getElementById("mnim").value=x.nim;
+ document.getElementById("memail").value=x.email;
+ document.getElementById("passwordField").classList.add("hidden");
+ document.getElementById("mpassword").required=false;
+ document.getElementById("memberModalTitle").textContent="Edit Anggota";
+ document.getElementById("memberModal").classList.remove("hidden");
+}
+document.getElementById("memberForm").onsubmit=async e=>{
+ e.preventDefault();
+ const x={id:document.getElementById("mid").value,name:mname.value.trim(),nim:mnim.value.trim(),email:memail.value.trim(),password:mpassword.value};
+ const action=mode==="add"?"createMember":"updateMember";
+ const r = await apiCall(action, { token: token, member: x });
+ if(r.success){ closeModal("memberModal");loadMembers();loadDashboard(); }
+ else { msg("memberFormMsg", r.message); }
+};
+async function statusMember(id,status){
+ if(!confirm("Ubah status akun anggota?"))return;
+ await apiCall("updateMemberStatus", { token: token, id: id, status: status });
+ loadMembers();
+}
+
+function loadAdmins(){
+ msg("adminInfo","Akun Super Admin: "+(document.getElementById("adminName").textContent)+" · Akses penuh sistem.");
+}
+
+async function loadActivities(){
+ const r = await apiCall("getActivities", { token: token });
+ activities=r.activities||[];
+ document.getElementById("activityRows").innerHTML=activities.map(a=>`<tr>
+ <td>${esc(a.name)}</td>
+ <td>${a.mapsUrl ? `<a href="${esc(a.mapsUrl)}" target="_blank">Buka Link Maps</a>` : '-'}</td>
+ <td>${esc(a.radius)} m</td>
+ <td>${esc(a.status)}</td>
+ <td><button class="${a.status==="ACTIVE"?"danger":"success"}" onclick="toggleActivity('${esc(a.id)}','${a.status==="ACTIVE"?"INACTIVE":"ACTIVE"}')">${a.status==="ACTIVE"?"Nonaktifkan":"Aktifkan"}</button>
+ <button class="gray" onclick="removeActivity('${esc(a.id)}')">Hapus</button></td></tr>`).join("")||'<tr><td colspan="5">Belum ada kegiatan.</td></tr>';
+ msg("activityMsg","Total kegiatan: "+activities.length);
+}
+function openActivity(){document.getElementById("activityForm").reset();document.getElementById("activityModal").classList.remove("hidden");}
+document.getElementById("activityForm").onsubmit=async e=>{
+ e.preventDefault();
+ const btn=document.getElementById("actSave");
+ btn.disabled=true; btn.textContent="Memproses Link...";
+ const a={name:aname.value,mapsUrl:amaps.value,radius:aradius.value};
+ const r = await apiCall("createActivity", { token: token, activity: a });
+ btn.disabled=false; btn.textContent="Simpan";
+ if(r.success){ closeModal("activityModal");loadActivities();loadDashboard(); }
+ else { msg("activityFormMsg", r.message); }
+};
+async function toggleActivity(id,status){
+ await apiCall("updateActivityStatus", { token: token, id: id, status: status });
+ loadActivities();
+}
+async function removeActivity(id){
+ if(!confirm("Hapus kegiatan ini?"))return;
+ await apiCall("deleteActivity", { token: token, id: id });
+ loadActivities();
+}
+
+async function loadAttendance(){
+ const r = await apiCall("getAttendanceRecords", { token: token, filters: {} });
+ attendance=r.records||[];
+ renderAttendance();
+ msg("attendanceMsg","Total data presensi: "+attendance.length);
+ document.getElementById("reportSummary").textContent="Total catatan presensi: "+attendance.length;
+ document.getElementById("reportRows").innerHTML=attendance.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.activity)}</td><td>${esc(x.time)}</td><td>${esc(x.status)}</td></tr>`).join("")||'<tr><td colspan="4">Belum ada data.</td></tr>';
+}
+function renderAttendance(){
+ const q=(document.getElementById("attendanceSearch").value||"").toLowerCase();
+ const rows=attendance.filter(x=>(x.name+" "+x.activity).toLowerCase().includes(q));
+ document.getElementById("attendanceRows").innerHTML=rows.map(x=>`<tr>
+ <td>${esc(x.name)}</td><td>${esc(x.activity)}</td><td>${esc(x.time)}</td>
+ <td>${esc(x.latitude)}, ${esc(x.longitude)}<br><small>Akurasi ${esc(x.accuracy)} m</small></td>
+ <td>${esc(x.distance)} m</td>
+ <td>${x.photo?`<a href="${esc(x.photo)}" target="_blank">Lihat foto</a>`:"-"}</td></tr>`).join("")||'<tr><td colspan="6">Belum ada data.</td></tr>';
+}
+function exportReport(){
+ const rows=[["Nama","Kegiatan","Waktu","Status"],...attendance.map(x=>[x.name,x.activity,x.time,x.status])];
+ const csv=rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"}));
+ a.download="Laporan_Presensi_UPZ.csv";a.click();
+ URL.revokeObjectURL(a.href);
+}
+
+if(!token){window.location.href="index.html";}
+else loadDashboard();
+</script>
+</body>
+</html>
